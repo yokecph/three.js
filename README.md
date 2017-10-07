@@ -16,6 +16,7 @@ Parts that've been removed are:
 - Audio framework
 - Animation framework
 - Legacy layer/deprecation warnings
+- WebGL shadow maps, sprites, flares, lights, VR
 
 
 ---------------

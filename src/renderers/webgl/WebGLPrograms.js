@@ -38,43 +38,6 @@ function WebGLPrograms( renderer, extensions, capabilities ) {
 		"alphaTest", "doubleSided", "flipSided", "numClippingPlanes", "numClipIntersection", "depthPacking", "dithering"
 	];
 
-
-	function allocateBones( object ) {
-
-		var skeleton = object.skeleton;
-		var bones = skeleton.bones;
-
-		if ( capabilities.floatVertexTextures ) {
-
-			return 1024;
-
-		} else {
-
-			// default for when object is not specified
-			// ( for example when prebuilding shader to be used with multiple objects )
-			//
-			//  - leave some extra space for other uniforms
-			//  - limit here is ANGLE's 254 max uniform vectors
-			//    (up to 54 should be safe)
-
-			var nVertexUniforms = capabilities.maxVertexUniforms;
-			var nVertexMatrices = Math.floor( ( nVertexUniforms - 20 ) / 4 );
-
-			var maxBones = Math.min( nVertexMatrices, bones.length );
-
-			if ( maxBones < bones.length ) {
-
-				console.warn( 'THREE.WebGLRenderer: Skeleton has ' + bones.length + ' bones. This GPU supports ' + maxBones + '.' );
-				return 0;
-
-			}
-
-			return maxBones;
-
-		}
-
-	}
-
 	function getTextureEncodingFromMap( map, gammaOverrideLinear ) {
 
 		var encoding;
@@ -112,7 +75,7 @@ function WebGLPrograms( renderer, extensions, capabilities ) {
 		// heuristics to create shader parameters according to lights in the scene
 		// (not to blow over maxLights budget)
 
-		var maxBones = object.isSkinnedMesh ? allocateBones( object ) : 0;
+		var maxBones = 0;
 		var precision = capabilities.precision;
 
 		if ( material.precision !== null ) {
@@ -169,7 +132,7 @@ function WebGLPrograms( renderer, extensions, capabilities ) {
 			sizeAttenuation: material.sizeAttenuation,
 			logarithmicDepthBuffer: capabilities.logarithmicDepthBuffer,
 
-			skinning: material.skinning && maxBones > 0,
+			skinning: false,
 			maxBones: maxBones,
 			useVertexTexture: capabilities.floatVertexTextures,
 
@@ -178,22 +141,22 @@ function WebGLPrograms( renderer, extensions, capabilities ) {
 			maxMorphTargets: renderer.maxMorphTargets,
 			maxMorphNormals: renderer.maxMorphNormals,
 
-			numDirLights: lights.directional.length,
-			numPointLights: lights.point.length,
-			numSpotLights: lights.spot.length,
-			numRectAreaLights: lights.rectArea.length,
-			numHemiLights: lights.hemi.length,
+			numDirLights: 0,
+			numPointLights: 0,
+			numSpotLights: 0,
+			numRectAreaLights: 0,
+			numHemiLights: 0,
 
 			numClippingPlanes: nClipPlanes,
 			numClipIntersection: nClipIntersection,
 
 			dithering: material.dithering,
 
-			shadowMapEnabled: renderer.shadowMap.enabled && object.receiveShadow && shadows.length > 0,
-			shadowMapType: renderer.shadowMap.type,
+			shadowMapEnabled: false,
+			shadowMapType: null,
 
 			toneMapping: renderer.toneMapping,
-			physicallyCorrectLights: renderer.physicallyCorrectLights,
+			physicallyCorrectLights: false,
 
 			premultipliedAlpha: material.premultipliedAlpha,
 

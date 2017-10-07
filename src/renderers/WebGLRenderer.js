@@ -6,28 +6,21 @@ import { WebGLUniforms } from './webgl/WebGLUniforms';
 import { UniformsLib } from './shaders/UniformsLib';
 import { UniformsUtils } from './shaders/UniformsUtils';
 import { ShaderLib } from './shaders/ShaderLib';
-import { WebGLFlareRenderer } from './webgl/WebGLFlareRenderer';
-import { WebGLSpriteRenderer } from './webgl/WebGLSpriteRenderer';
-import { WebGLShadowMap } from './webgl/WebGLShadowMap';
 import { WebGLAttributes } from './webgl/WebGLAttributes';
 import { WebGLBackground } from './webgl/WebGLBackground';
 import { WebGLRenderLists } from './webgl/WebGLRenderLists';
-import { WebGLMorphtargets } from './webgl/WebGLMorphtargets';
 import { WebGLIndexedBufferRenderer } from './webgl/WebGLIndexedBufferRenderer';
 import { WebGLBufferRenderer } from './webgl/WebGLBufferRenderer';
 import { WebGLGeometries } from './webgl/WebGLGeometries';
-import { WebGLLights } from './webgl/WebGLLights';
 import { WebGLObjects } from './webgl/WebGLObjects';
 import { WebGLPrograms } from './webgl/WebGLPrograms';
 import { WebGLTextures } from './webgl/WebGLTextures';
 import { WebGLProperties } from './webgl/WebGLProperties';
 import { WebGLState } from './webgl/WebGLState';
 import { WebGLCapabilities } from './webgl/WebGLCapabilities';
-import { WebVRManager } from './webvr/WebVRManager';
 import { BufferGeometry } from '../core/BufferGeometry';
 import { WebGLExtensions } from './webgl/WebGLExtensions';
 import { Vector3 } from '../math/Vector3';
-// import { Sphere } from '../math/Sphere';
 import { WebGLClipping } from './webgl/WebGLClipping';
 import { Frustum } from '../math/Frustum';
 import { Vector4 } from '../math/Vector4';
@@ -280,18 +273,13 @@ function WebGLRenderer( parameters ) {
 		attributes = new WebGLAttributes( _gl );
 		geometries = new WebGLGeometries( _gl, attributes, _infoMemory );
 		objects = new WebGLObjects( geometries, _infoRender );
-		morphtargets = new WebGLMorphtargets( _gl );
 		programCache = new WebGLPrograms( _this, extensions, capabilities );
-		lights = new WebGLLights();
 		renderLists = new WebGLRenderLists();
 
-		background = new WebGLBackground( _this, state, geometries, _premultipliedAlpha );
+        background = new WebGLBackground( _this, state, geometries, _premultipliedAlpha );
 
 		bufferRenderer = new WebGLBufferRenderer( _gl, extensions, _infoRender );
 		indexedBufferRenderer = new WebGLIndexedBufferRenderer( _gl, extensions, _infoRender );
-
-		flareRenderer = new WebGLFlareRenderer( _this, _gl, state, textures, capabilities );
-		spriteRenderer = new WebGLSpriteRenderer( _this, _gl, state, textures, capabilities );
 
 		_this.info.programs = programCache.programs;
 
@@ -305,18 +293,6 @@ function WebGLRenderer( parameters ) {
 	}
 
 	initGLContext();
-
-	// vr
-
-	var vr = new WebVRManager( _this );
-
-	this.vr = vr;
-
-	// shadow map
-
-	var shadowMap = new WebGLShadowMap( _this, objects, capabilities.maxTextureSize );
-
-	this.shadowMap = shadowMap;
 
 	// API
 
@@ -372,15 +348,6 @@ function WebGLRenderer( parameters ) {
 	};
 
 	this.setSize = function ( width, height, updateStyle ) {
-
-		var device = vr.getDevice();
-
-		if ( device && device.isPresenting ) {
-
-			console.warn( 'THREE.WebGLRenderer: Can\'t change size while VR device is presenting.' );
-			return;
-
-		}
 
 		_width = width;
 		_height = height;
@@ -494,8 +461,6 @@ function WebGLRenderer( parameters ) {
 		_canvas.removeEventListener( 'webglcontextrestored', onContextRestore, false );
 
 		renderLists.dispose();
-
-		vr.dispose();
 
 	};
 
@@ -674,14 +639,6 @@ function WebGLRenderer( parameters ) {
 		if ( geometryProgram !== _currentGeometryProgram ) {
 
 			_currentGeometryProgram = geometryProgram;
-			updateBuffers = true;
-
-		}
-
-		if ( object.morphTargetInfluences ) {
-
-			morphtargets.update( object, geometry, material, program );
-
 			updateBuffers = true;
 
 		}
@@ -959,27 +916,6 @@ function WebGLRenderer( parameters ) {
 
 	this.compile = function ( scene, camera ) {
 
-		lightsArray.length = 0;
-		shadowsArray.length = 0;
-
-		scene.traverse( function ( object ) {
-
-			if ( object.isLight ) {
-
-				lightsArray.push( object );
-
-				if ( object.castShadow ) {
-
-					shadowsArray.push( object );
-
-				}
-
-			}
-
-		} );
-
-		lights.setup( lightsArray, shadowsArray, camera );
-
 		scene.traverse( function ( object ) {
 
 			if ( object.material ) {
@@ -1012,7 +948,7 @@ function WebGLRenderer( parameters ) {
 	function start() {
 
 		if ( isAnimating ) return;
-		( vr.getDevice() || window ).requestAnimationFrame( loop );
+		window.requestAnimationFrame( loop );
 		isAnimating = true;
 
 	}
@@ -1020,7 +956,7 @@ function WebGLRenderer( parameters ) {
 	function loop( time ) {
 
 		if ( onAnimationFrame !== null ) onAnimationFrame( time );
-		( vr.getDevice() || window ).requestAnimationFrame( loop );
+		window.requestAnimationFrame( loop );
 
 	}
 
@@ -1058,12 +994,6 @@ function WebGLRenderer( parameters ) {
 
 		if ( camera.parent === null ) camera.updateMatrixWorld();
 
-		if ( vr.enabled ) {
-
-			camera = vr.getCamera( camera );
-
-		}
-
 		_projScreenMatrix.multiplyMatrices( camera.projectionMatrix, camera.matrixWorldInverse );
 		_frustum.setFromMatrix( _projScreenMatrix );
 
@@ -1086,16 +1016,6 @@ function WebGLRenderer( parameters ) {
 			currentRenderList.sort();
 
 		}
-
-		//
-
-		if ( _clippingEnabled ) _clipping.beginShadows();
-
-		shadowMap.render( shadowsArray, scene, camera );
-
-		lights.setup( lightsArray, shadowsArray, camera );
-
-		if ( _clippingEnabled ) _clipping.endShadows();
 
 		//
 
@@ -1141,11 +1061,6 @@ function WebGLRenderer( parameters ) {
 
 		}
 
-		// custom renderers
-
-		spriteRenderer.render( spritesArray, scene, camera );
-		flareRenderer.render( flaresArray, scene, camera, _currentViewport );
-
 		// Generate mipmap if we're using any kind of mipmap filtering
 
 		if ( renderTarget ) {
@@ -1161,14 +1076,6 @@ function WebGLRenderer( parameters ) {
 		state.buffers.color.setMask( true );
 
 		state.setPolygonOffset( false );
-
-		if ( vr.enabled ) {
-
-			vr.submitFrame();
-
-		}
-
-		// _gl.finish();
 
 	};
 
@@ -1235,29 +1142,7 @@ function WebGLRenderer( parameters ) {
 
 		if ( visible ) {
 
-			if ( object.isLight ) {
-
-				lightsArray.push( object );
-
-				if ( object.castShadow ) {
-
-					shadowsArray.push( object );
-
-				}
-
-			} else if ( object.isSprite ) {
-
-				if ( ! object.frustumCulled || _frustum.intersectsSprite( object ) ) {
-
-					spritesArray.push( object );
-
-				}
-
-			} else if ( object.isLensFlare ) {
-
-				flaresArray.push( object );
-
-			} else if ( object.isImmediateRenderObject ) {
+			if ( object.isImmediateRenderObject ) {
 
 				if ( sortObjects ) {
 
@@ -1408,8 +1293,27 @@ function WebGLRenderer( parameters ) {
 
 		var materialProperties = properties.get( material );
 
+		var lightsHashDummy = {
+
+			hash: '',
+
+			ambient: [ 0, 0, 0 ],
+			directional: [],
+			directionalShadowMap: [],
+			directionalShadowMatrix: [],
+			spot: [],
+			spotShadowMap: [],
+			spotShadowMatrix: [],
+			rectArea: [],
+			point: [],
+			pointShadowMap: [],
+			pointShadowMatrix: [],
+			hemi: []
+
+		};
+
 		var parameters = programCache.getParameters(
-			material, lights.state, shadowsArray, fog, _clipping.numPlanes, _clipping.numIntersection, object );
+			material, lightsHashDummy, shadowsArray, fog, _clipping.numPlanes, _clipping.numIntersection, object );
 
 		var code = programCache.getProgramCode( material, parameters );
 
@@ -1473,38 +1377,6 @@ function WebGLRenderer( parameters ) {
 
 		var programAttributes = program.getAttributes();
 
-		if ( material.morphTargets ) {
-
-			material.numSupportedMorphTargets = 0;
-
-			for ( var i = 0; i < _this.maxMorphTargets; i ++ ) {
-
-				if ( programAttributes[ 'morphTarget' + i ] >= 0 ) {
-
-					material.numSupportedMorphTargets ++;
-
-				}
-
-			}
-
-		}
-
-		if ( material.morphNormals ) {
-
-			material.numSupportedMorphNormals = 0;
-
-			for ( var i = 0; i < _this.maxMorphNormals; i ++ ) {
-
-				if ( programAttributes[ 'morphNormal' + i ] >= 0 ) {
-
-					material.numSupportedMorphNormals ++;
-
-				}
-
-			}
-
-		}
-
 		var uniforms = materialProperties.shader.uniforms;
 
 		if ( ! material.isShaderMaterial &&
@@ -1514,33 +1386,6 @@ function WebGLRenderer( parameters ) {
 			materialProperties.numClippingPlanes = _clipping.numPlanes;
 			materialProperties.numIntersection = _clipping.numIntersection;
 			uniforms.clippingPlanes = _clipping.uniform;
-
-		}
-
-		materialProperties.fog = fog;
-
-		// store the light setup it was created for
-
-		materialProperties.lightsHash = lights.state.hash;
-
-		if ( material.lights ) {
-
-			// wire up the material to this renderer's lighting state
-
-			uniforms.ambientLightColor.value = lights.state.ambient;
-			uniforms.directionalLights.value = lights.state.directional;
-			uniforms.spotLights.value = lights.state.spot;
-			uniforms.rectAreaLights.value = lights.state.rectArea;
-			uniforms.pointLights.value = lights.state.point;
-			uniforms.hemisphereLights.value = lights.state.hemi;
-
-			uniforms.directionalShadowMap.value = lights.state.directionalShadowMap;
-			uniforms.directionalShadowMatrix.value = lights.state.directionalShadowMatrix;
-			uniforms.spotShadowMap.value = lights.state.spotShadowMap;
-			uniforms.spotShadowMatrix.value = lights.state.spotShadowMatrix;
-			uniforms.pointShadowMap.value = lights.state.pointShadowMap;
-			uniforms.pointShadowMatrix.value = lights.state.pointShadowMatrix;
-			// TODO (abelnation): add area lights shadow info to uniforms
 
 		}
 
@@ -1580,14 +1425,6 @@ function WebGLRenderer( parameters ) {
 		if ( material.needsUpdate === false ) {
 
 			if ( materialProperties.program === undefined ) {
-
-				material.needsUpdate = true;
-
-			} else if ( material.fog && materialProperties.fog !== fog ) {
-
-				material.needsUpdate = true;
-
-			} else if ( material.lights && materialProperties.lightsHash !== lights.state.hash ) {
 
 				material.needsUpdate = true;
 
@@ -1690,161 +1527,11 @@ function WebGLRenderer( parameters ) {
 
 		}
 
-		// skinning uniforms must be set even if material didn't change
-		// auto-setting of texture unit for bone texture must go before other textures
-		// not sure why, but otherwise weird things happen
-
-		if ( material.skinning ) {
-
-			p_uniforms.setOptional( _gl, object, 'bindMatrix' );
-			p_uniforms.setOptional( _gl, object, 'bindMatrixInverse' );
-
-			var skeleton = object.skeleton;
-
-			if ( skeleton ) {
-
-				var bones = skeleton.bones;
-
-				if ( capabilities.floatVertexTextures ) {
-
-					if ( skeleton.boneTexture === undefined ) {
-
-						// layout (1 matrix = 4 pixels)
-						//      RGBA RGBA RGBA RGBA (=> column1, column2, column3, column4)
-						//  with  8x8  pixel texture max   16 bones * 4 pixels =  (8 * 8)
-						//       16x16 pixel texture max   64 bones * 4 pixels = (16 * 16)
-						//       32x32 pixel texture max  256 bones * 4 pixels = (32 * 32)
-						//       64x64 pixel texture max 1024 bones * 4 pixels = (64 * 64)
-
-
-						var size = Math.sqrt( bones.length * 4 ); // 4 pixels needed for 1 matrix
-						size = _Math.nextPowerOfTwo( Math.ceil( size ) );
-						size = Math.max( size, 4 );
-
-						var boneMatrices = new Float32Array( size * size * 4 ); // 4 floats per RGBA pixel
-						boneMatrices.set( skeleton.boneMatrices ); // copy current values
-
-						var boneTexture = new DataTexture( boneMatrices, size, size, RGBAFormat, FloatType );
-
-						skeleton.boneMatrices = boneMatrices;
-						skeleton.boneTexture = boneTexture;
-						skeleton.boneTextureSize = size;
-
-					}
-
-					p_uniforms.setValue( _gl, 'boneTexture', skeleton.boneTexture );
-					p_uniforms.setValue( _gl, 'boneTextureSize', skeleton.boneTextureSize );
-
-				} else {
-
-					p_uniforms.setOptional( _gl, skeleton, 'boneMatrices' );
-
-				}
-
-			}
-
-		}
 
 		if ( refreshMaterial ) {
 
 			p_uniforms.setValue( _gl, 'toneMappingExposure', _this.toneMappingExposure );
 			p_uniforms.setValue( _gl, 'toneMappingWhitePoint', _this.toneMappingWhitePoint );
-
-			if ( material.lights ) {
-
-				// the current material requires lighting info
-
-				// note: all lighting uniforms are always set correctly
-				// they simply reference the renderer's state for their
-				// values
-				//
-				// use the current material's .needsUpdate flags to set
-				// the GL state when required
-
-				markUniformsLightsNeedsUpdate( m_uniforms, refreshLights );
-
-			}
-
-			// refresh uniforms common to several materials
-
-			if ( fog && material.fog ) {
-
-				refreshUniformsFog( m_uniforms, fog );
-
-			}
-
-			if ( material.isMeshBasicMaterial ) {
-
-				refreshUniformsCommon( m_uniforms, material );
-
-			} else if ( material.isMeshLambertMaterial ) {
-
-				refreshUniformsCommon( m_uniforms, material );
-				refreshUniformsLambert( m_uniforms, material );
-
-			} else if ( material.isMeshPhongMaterial ) {
-
-				refreshUniformsCommon( m_uniforms, material );
-
-				if ( material.isMeshToonMaterial ) {
-
-					refreshUniformsToon( m_uniforms, material );
-
-				} else {
-
-					refreshUniformsPhong( m_uniforms, material );
-
-				}
-
-			} else if ( material.isMeshStandardMaterial ) {
-
-				refreshUniformsCommon( m_uniforms, material );
-
-				if ( material.isMeshPhysicalMaterial ) {
-
-					refreshUniformsPhysical( m_uniforms, material );
-
-				} else {
-
-					refreshUniformsStandard( m_uniforms, material );
-
-				}
-
-			} else if ( material.isMeshDepthMaterial ) {
-
-				refreshUniformsCommon( m_uniforms, material );
-				refreshUniformsDepth( m_uniforms, material );
-
-			} else if ( material.isMeshDistanceMaterial ) {
-
-				refreshUniformsCommon( m_uniforms, material );
-				refreshUniformsDistance( m_uniforms, material );
-
-			} else if ( material.isMeshNormalMaterial ) {
-
-				refreshUniformsCommon( m_uniforms, material );
-				refreshUniformsNormal( m_uniforms, material );
-
-			} else if ( material.isLineBasicMaterial ) {
-
-				refreshUniformsLine( m_uniforms, material );
-
-				if ( material.isLineDashedMaterial ) {
-
-					refreshUniformsDash( m_uniforms, material );
-
-				}
-
-			} else if ( material.isPointsMaterial ) {
-
-				refreshUniformsPoints( m_uniforms, material );
-
-			} else if ( material.isShadowMaterial ) {
-
-				m_uniforms.color.value = material.color;
-				m_uniforms.opacity.value = material.opacity;
-
-			}
 
 			// RectAreaLight Texture
 			// TODO (mrdoob): Find a nicer implementation
@@ -1999,246 +1686,6 @@ function WebGLRenderer( parameters ) {
 
 	}
 
-	function refreshUniformsLine( uniforms, material ) {
-
-		uniforms.diffuse.value = material.color;
-		uniforms.opacity.value = material.opacity;
-
-	}
-
-	function refreshUniformsDash( uniforms, material ) {
-
-		uniforms.dashSize.value = material.dashSize;
-		uniforms.totalSize.value = material.dashSize + material.gapSize;
-		uniforms.scale.value = material.scale;
-
-	}
-
-	function refreshUniformsPoints( uniforms, material ) {
-
-		uniforms.diffuse.value = material.color;
-		uniforms.opacity.value = material.opacity;
-		uniforms.size.value = material.size * _pixelRatio;
-		uniforms.scale.value = _height * 0.5;
-
-		uniforms.map.value = material.map;
-
-		if ( material.map !== null ) {
-
-			var offset = material.map.offset;
-			var repeat = material.map.repeat;
-
-			uniforms.offsetRepeat.value.set( offset.x, offset.y, repeat.x, repeat.y );
-
-		}
-
-	}
-
-	function refreshUniformsFog( uniforms, fog ) {
-
-		uniforms.fogColor.value = fog.color;
-
-		if ( fog.isFog ) {
-
-			uniforms.fogNear.value = fog.near;
-			uniforms.fogFar.value = fog.far;
-
-		} else if ( fog.isFogExp2 ) {
-
-			uniforms.fogDensity.value = fog.density;
-
-		}
-
-	}
-
-	function refreshUniformsLambert( uniforms, material ) {
-
-		if ( material.emissiveMap ) {
-
-			uniforms.emissiveMap.value = material.emissiveMap;
-
-		}
-
-	}
-
-	function refreshUniformsPhong( uniforms, material ) {
-
-		uniforms.specular.value = material.specular;
-		uniforms.shininess.value = Math.max( material.shininess, 1e-4 ); // to prevent pow( 0.0, 0.0 )
-
-		if ( material.emissiveMap ) {
-
-			uniforms.emissiveMap.value = material.emissiveMap;
-
-		}
-
-		if ( material.bumpMap ) {
-
-			uniforms.bumpMap.value = material.bumpMap;
-			uniforms.bumpScale.value = material.bumpScale;
-
-		}
-
-		if ( material.normalMap ) {
-
-			uniforms.normalMap.value = material.normalMap;
-			uniforms.normalScale.value.copy( material.normalScale );
-
-		}
-
-		if ( material.displacementMap ) {
-
-			uniforms.displacementMap.value = material.displacementMap;
-			uniforms.displacementScale.value = material.displacementScale;
-			uniforms.displacementBias.value = material.displacementBias;
-
-		}
-
-	}
-
-	function refreshUniformsToon( uniforms, material ) {
-
-		refreshUniformsPhong( uniforms, material );
-
-		if ( material.gradientMap ) {
-
-			uniforms.gradientMap.value = material.gradientMap;
-
-		}
-
-	}
-
-	function refreshUniformsStandard( uniforms, material ) {
-
-		uniforms.roughness.value = material.roughness;
-		uniforms.metalness.value = material.metalness;
-
-		if ( material.roughnessMap ) {
-
-			uniforms.roughnessMap.value = material.roughnessMap;
-
-		}
-
-		if ( material.metalnessMap ) {
-
-			uniforms.metalnessMap.value = material.metalnessMap;
-
-		}
-
-		if ( material.emissiveMap ) {
-
-			uniforms.emissiveMap.value = material.emissiveMap;
-
-		}
-
-		if ( material.bumpMap ) {
-
-			uniforms.bumpMap.value = material.bumpMap;
-			uniforms.bumpScale.value = material.bumpScale;
-
-		}
-
-		if ( material.normalMap ) {
-
-			uniforms.normalMap.value = material.normalMap;
-			uniforms.normalScale.value.copy( material.normalScale );
-
-		}
-
-		if ( material.displacementMap ) {
-
-			uniforms.displacementMap.value = material.displacementMap;
-			uniforms.displacementScale.value = material.displacementScale;
-			uniforms.displacementBias.value = material.displacementBias;
-
-		}
-
-		if ( material.envMap ) {
-
-			//uniforms.envMap.value = material.envMap; // part of uniforms common
-			uniforms.envMapIntensity.value = material.envMapIntensity;
-
-		}
-
-	}
-
-	function refreshUniformsPhysical( uniforms, material ) {
-
-		uniforms.clearCoat.value = material.clearCoat;
-		uniforms.clearCoatRoughness.value = material.clearCoatRoughness;
-
-		refreshUniformsStandard( uniforms, material );
-
-	}
-
-	function refreshUniformsDepth( uniforms, material ) {
-
-		if ( material.displacementMap ) {
-
-			uniforms.displacementMap.value = material.displacementMap;
-			uniforms.displacementScale.value = material.displacementScale;
-			uniforms.displacementBias.value = material.displacementBias;
-
-		}
-
-	}
-
-	function refreshUniformsDistance( uniforms, material ) {
-
-		if ( material.displacementMap ) {
-
-			uniforms.displacementMap.value = material.displacementMap;
-			uniforms.displacementScale.value = material.displacementScale;
-			uniforms.displacementBias.value = material.displacementBias;
-
-		}
-
-		uniforms.referencePosition.value.copy( material.referencePosition );
-		uniforms.nearDistance.value = material.nearDistance;
-		uniforms.farDistance.value = material.farDistance;
-
-	}
-
-	function refreshUniformsNormal( uniforms, material ) {
-
-		if ( material.bumpMap ) {
-
-			uniforms.bumpMap.value = material.bumpMap;
-			uniforms.bumpScale.value = material.bumpScale;
-
-		}
-
-		if ( material.normalMap ) {
-
-			uniforms.normalMap.value = material.normalMap;
-			uniforms.normalScale.value.copy( material.normalScale );
-
-		}
-
-		if ( material.displacementMap ) {
-
-			uniforms.displacementMap.value = material.displacementMap;
-			uniforms.displacementScale.value = material.displacementScale;
-			uniforms.displacementBias.value = material.displacementBias;
-
-		}
-
-	}
-
-	// If uniforms are marked as clean, they don't need to be loaded to the GPU.
-
-	function markUniformsLightsNeedsUpdate( uniforms, value ) {
-
-		uniforms.ambientLightColor.needsUpdate = value;
-
-		uniforms.directionalLights.needsUpdate = value;
-		uniforms.pointLights.needsUpdate = value;
-		uniforms.spotLights.needsUpdate = value;
-		uniforms.rectAreaLights.needsUpdate = value;
-		uniforms.hemisphereLights.needsUpdate = value;
-
-	}
-
 	// GL state setting
 
 	this.setFaceCulling = function ( cullFace, frontFaceDirection ) {
@@ -2314,47 +1761,7 @@ function WebGLRenderer( parameters ) {
 
 	}() );
 
-	this.setTextureCube = ( function () {
-
-		var warned = false;
-
-		return function setTextureCube( texture, slot ) {
-
-			// backwards compatibility: peel texture.texture
-			if ( texture && texture.isWebGLRenderTargetCube ) {
-
-				if ( ! warned ) {
-
-					console.warn( "THREE.WebGLRenderer.setTextureCube: don't use cube render targets as textures. Use their .texture property instead." );
-					warned = true;
-
-				}
-
-				texture = texture.texture;
-
-			}
-
-			// currently relying on the fact that WebGLRenderTargetCube.texture is a Texture and NOT a CubeTexture
-			// TODO: unify these code paths
-			if ( ( texture && texture.isCubeTexture ) ||
-				( Array.isArray( texture.image ) && texture.image.length === 6 ) ) {
-
-				// CompressedTexture can have Array in image :/
-
-				// this function alone should take care of cube textures
-				textures.setTextureCube( texture, slot );
-
-			} else {
-
-				// assumed: texture property of THREE.WebGLRenderTargetCube
-
-				textures.setTextureCubeDynamic( texture, slot );
-
-			}
-
-		};
-
-	}() );
+	this.setTextureCube = function () {};
 
 	this.getRenderTarget = function () {
 
