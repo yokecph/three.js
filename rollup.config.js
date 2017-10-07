@@ -1,3 +1,5 @@
+var Visualizer = require('rollup-plugin-visualizer');
+
 function glsl() {
 
 	return {
@@ -27,7 +29,8 @@ export default {
 	entry: 'src/Three.js',
 	indent: '\t',
 	plugins: [
-		glsl()
+		glsl(),
+        Visualizer()
 	],
 	// sourceMap: true,
 	targets: [
