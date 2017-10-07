@@ -1,5 +1,24 @@
-three.js
-========
+three.js (sparse)
+=================
+
+---------------
+
+## About this fork
+This fork of three.js r87 is a "sparse" customized build created for a specific purpose. Many, many features have been removed in the interest of producing a much slimmer library. This fork is **not** intended as a general-purpose replacement for the [real three.js library](https://github.com/mrdoob/three.js) and its changes are not meant to be integrated back into the main project.
+
+Documentation and examples have been kept as-is, but _do not_ reflect this particular fork's features.
+
+Parts that've been removed are:
+
+- Most built-in geometries
+- Most built-in materials
+- Lights
+- Audio framework
+- Animation framework
+- Legacy layer/deprecation warnings
+
+
+---------------
 
 [![Gitter][gitter-badge]][gitter-badge-url]
 [![Latest NPM release][npm-badge]][npm-badge-url]
